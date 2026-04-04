@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "108008346775",
+    "project_id": "telemedicine-access-for-rural",
+    "storage_bucket": "telemedicine-access-for-rural.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:108008346775:android:8c3f471d853e376ee985d2",
+        "android_client_info": {
+          "package_name": "com.nabha.telemedicine"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCA8xfEcOIy7VNkxes2e0uWL160aO2Yfx4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

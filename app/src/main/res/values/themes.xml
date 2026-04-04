@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        Base theme — using AppCompat.DayNight.NoActionBar which is always available.
+        Material 3 theming is handled entirely in Jetpack Compose code (NabhaTheme).
+        We don't need the XML Material3 theme at all since the app is 100% Compose.
+    -->
+    <style name="Theme.NabhaTeleMedicine" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowBackground">@color/app_background</item>
+    </style>
+
+    <!--
+        Splash screen theme — shown for ~1 second at startup.
+        Uses the ic_launcher_foreground vector as the animated icon.
+    -->
+    <style name="Theme.NabhaTeleMedicine.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#060F1A</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="windowSplashScreenAnimationDuration">1000</item>
+        <item name="postSplashScreenTheme">@style/Theme.NabhaTeleMedicine</item>
+    </style>
+
+</resources>

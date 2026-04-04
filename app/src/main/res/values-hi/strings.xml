@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">नाभा सेहत</string>
+    <string name="app_tagline">पंजाब सरकार टेलीमेडिसिन पहल</string>
+    <string name="login_title">स्वागत है</string>
+    <string name="login_subtitle">जारी रखने के लिए अपना फोन नंबर दर्ज करें</string>
+    <string name="send_otp">OTP भेजें</string>
+    <string name="verify_otp">OTP सत्यापित करें</string>
+    <string name="consult_doctor">डॉक्टर से मिलें</string>
+    <string name="symptom_check">लक्षण जांच</string>
+    <string name="my_records">मेरे रिकॉर्ड</string>
+    <string name="medicine_stock">दवा स्टॉक</string>
+    <string name="appointments">अपॉइंटमेंट</string>
+    <string name="emergency_sos">आपातकाल</string>
+    <string name="find_doctor">डॉक्टर खोजें</string>
+    <string name="pharmacy_finder">फार्मेसी खोजें</string>
+    <string name="symptom_checker">AI लक्षण जांचकर्ता</string>
+    <string name="emergency">आपातकालीन SOS</string>
+    <string name="settings">सेटिंग्स</string>
+    <string name="sign_out">साइन आउट</string>
+    <string name="health_is_wealth">स्वास्थ्य ही धन है</string>
+    <string name="govt_branding">पंजाब सरकार · टेलीमेडिसिन पहल</string>
+    <string name="serving_villages">173 गांवों की सेवा में</string>
+</resources>

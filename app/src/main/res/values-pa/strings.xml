@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ਨਾਭਾ ਸਿਹਤ</string>
+    <string name="app_tagline">ਪੰਜਾਬ ਸਰਕਾਰ ਟੈਲੀਮੈਡੀਸਨ ਪਹਿਲਕਦਮੀ</string>
+
+    <!-- Auth -->
+    <string name="login_title">ਸੁਆਗਤ ਹੈ</string>
+    <string name="login_subtitle">ਜਾਰੀ ਰੱਖਣ ਲਈ ਆਪਣਾ ਫੋਨ ਨੰਬਰ ਦਾਖਲ ਕਰੋ</string>
+    <string name="phone_hint">ਮੋਬਾਈਲ ਨੰਬਰ</string>
+    <string name="send_otp">OTP ਭੇਜੋ</string>
+    <string name="verify_otp">OTP ਤਸਦੀਕ ਕਰੋ</string>
+    <string name="resend_otp">OTP ਦੁਬਾਰਾ ਭੇਜੋ</string>
+
+    <!-- Home -->
+    <string name="home_greeting">ਸਤ ਸ੍ਰੀ ਅਕਾਲ</string>
+    <string name="quick_actions">ਤੁਰੰਤ ਕਾਰਵਾਈਆਂ</string>
+    <string name="consult_doctor">ਡਾਕਟਰ ਨਾਲ ਗੱਲ</string>
+    <string name="symptom_check">ਲੱਛਣ ਜਾਂਚ</string>
+    <string name="my_records">ਮੇਰੇ ਰਿਕਾਰਡ</string>
+    <string name="medicine_stock">ਦਵਾਈ ਸਟਾਕ</string>
+    <string name="appointments">ਮੁਲਾਕਾਤਾਂ</string>
+    <string name="emergency_sos">ਐਮਰਜੈਂਸੀ</string>
+
+    <!-- Doctors -->
+    <string name="find_doctor">ਡਾਕਟਰ ਲੱਭੋ</string>
+    <string name="book_appointment">ਮੁਲਾਕਾਤ ਬੁੱਕ ਕਰੋ</string>
+    <string name="available_doctors">ਉਪਲਬਧ ਡਾਕਟਰ</string>
+    <string name="see_all">ਸਾਰੇ ਦੇਖੋ</string>
+
+    <!-- Records -->
+    <string name="health_records">ਮੇਰੇ ਸਿਹਤ ਰਿਕਾਰਡ</string>
+    <string name="upload_record">ਰਿਕਾਰਡ ਅਪਲੋਡ ਕਰੋ</string>
+    <string name="records_synced_offline">ਆਫਲਾਈਨ ਸਿੰਕ ਕੀਤੇ ਰਿਕਾਰਡ</string>
+
+    <!-- Pharmacy -->
+    <string name="pharmacy_finder">ਦਵਾਖਾਨਾ ਖੋਜੋ</string>
+    <string name="medicine_search">ਦਵਾਈ ਖੋਜੋ</string>
+    <string name="in_stock">ਉਪਲਬਧ</string>
+    <string name="out_of_stock">ਉਪਲਬਧ ਨਹੀਂ</string>
+
+    <!-- Symptom Checker -->
+    <string name="symptom_checker">AI ਲੱਛਣ ਜਾਂਚਕਾਰ</string>
+    <string name="analyze_symptoms">ਲੱਛਣਾਂ ਦਾ ਵਿਸ਼ਲੇਸ਼ਣ ਕਰੋ</string>
+    <string name="works_offline">ਆਫਲਾਈਨ ਕੰਮ ਕਰਦਾ ਹੈ</string>
+
+    <!-- Emergency -->
+    <string name="emergency">ਐਮਰਜੈਂਸੀ SOS</string>
+    <string name="call_ambulance">ਐਂਬੂਲੈਂਸ ਬੁਲਾਓ</string>
+    <string name="nearest_hospital">ਨਜ਼ਦੀਕੀ ਹਸਪਤਾਲ</string>
+
+    <!-- Settings -->
+    <string name="settings">ਸੈਟਿੰਗਾਂ</string>
+    <string name="language">ਭਾਸ਼ਾ</string>
+    <string name="notifications">ਸੂਚਨਾਵਾਂ</string>
+    <string name="dark_mode">ਡਾਰਕ ਮੋਡ</string>
+    <string name="offline_sync">ਆਫਲਾਈਨ ਸਿੰਕ</string>
+    <string name="sign_out">ਸਾਈਨ ਆਊਟ</string>
+    <string name="about_app">ਐਪ ਬਾਰੇ</string>
+
+    <!-- Government Branding -->
+    <string name="govt_branding">ਪੰਜਾਬ ਸਰਕਾਰ · ਟੈਲੀਮੈਡੀਸਨ ਪਹਿਲਕਦਮੀ</string>
+    <string name="serving_villages">173 ਪਿੰਡਾਂ ਦੀ ਸੇਵਾ</string>
+    <string name="health_is_wealth">ਸਿਹਤ ਹੀ ਧਨ ਹੈ</string>
+</resources>
