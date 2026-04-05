@@ -79,20 +79,7 @@ fun HomeScreen(navController: NavController) {
     }
 
     Scaffold(
-        containerColor = SurfaceDark,
-        bottomBar = {
-            NabhaBottomNavigationBar(
-                items = listOf(
-                    BottomNavItem(Screen.Home.route,         Icons.Rounded.Home,          Icons.Rounded.Home,          "Home"),
-                    BottomNavItem(Screen.Appointments.route, Icons.Rounded.CalendarMonth, Icons.Rounded.CalendarMonth, "Appointments"),
-                    BottomNavItem(Screen.Records.route,      Icons.Rounded.FolderOpen,    Icons.Rounded.FolderOpen,    "Records"),
-                    BottomNavItem(Screen.Pharmacy.route,     Icons.Rounded.LocalPharmacy, Icons.Rounded.LocalPharmacy, "Pharmacy"),
-                    BottomNavItem(Screen.Settings.route,     Icons.Rounded.Settings,      Icons.Rounded.Settings,      "Settings")
-                ),
-                selectedRoute  = Screen.Home.route,
-                onItemSelected = { navController.navigate(it) { launchSingleTop = true } }
-            )
-        }
+        containerColor = SurfaceDark
     ) { padding ->
         LazyColumn(
             modifier            = Modifier
@@ -271,14 +258,18 @@ private fun QuickActionsGrid(
         val rows = actions.chunked(3)
         rows.forEach { rowActions ->
             Row(
-                modifier              = Modifier.fillMaxWidth(),
+                modifier              = Modifier
+                    .fillMaxWidth()
+                    .height(IntrinsicSize.Min),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 rowActions.forEach { action ->
                     QuickActionTile(
                         action    = action,
                         onClick   = { onActionClick(action) },
-                        modifier  = Modifier.weight(1f)
+                        modifier  = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
                     )
                 }
                 // fill remaining space if less than 3
@@ -307,12 +298,11 @@ private fun QuickActionTile(
 
     Column(
         modifier = modifier
-            .aspectRatio(1f)
             .clip(RoundedCornerShape(18.dp))
             .background(action.color.copy(alpha = 0.1f))
             .border(1.dp, action.color.copy(alpha = 0.25f), RoundedCornerShape(18.dp))
             .clickable(interactionSource = interactionSource, indication = null) { onClick() }
-            .padding(12.dp),
+            .padding(vertical = 16.dp, horizontal = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -479,12 +469,14 @@ private fun DoctorMiniCard(doctor: MockDoctor, onClick: () -> Unit) {
     Column(
         modifier = Modifier
             .width(140.dp)
+            .height(170.dp)
             .clip(RoundedCornerShape(18.dp))
             .background(CardDark)
             .border(1.dp, DividerDark, RoundedCornerShape(18.dp))
             .clickable(MutableInteractionSource(), null) { onClick() }
             .padding(14.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
         Box {
             Box(
@@ -551,13 +543,28 @@ private fun NabhaStatsRow(modifier: Modifier) {
 private fun StatCard(modifier: Modifier, value: String, label: String, color: Color) {
     Column(
         modifier = modifier
+            .height(90.dp)
             .clip(RoundedCornerShape(14.dp))
             .background(color.copy(0.08f))
             .border(1.dp, color.copy(0.2f), RoundedCornerShape(14.dp))
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .padding(horizontal = 12.dp, vertical = 14.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        Text(value, fontWeight = FontWeight.ExtraBold, color = color, fontSize = 22.sp)
-        Text(label, color = TextTertiary, fontSize = 11.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        Text(
+            text       = value,
+            fontWeight = FontWeight.ExtraBold,
+            color      = color,
+            fontSize   = 22.sp
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text      = label,
+            color     = TextTertiary,
+            fontSize  = 11.sp,
+            maxLines  = 2,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            lineHeight = 14.sp
+        )
     }
 }
