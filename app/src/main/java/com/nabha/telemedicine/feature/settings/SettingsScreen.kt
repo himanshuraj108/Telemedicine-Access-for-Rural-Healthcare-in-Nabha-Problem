@@ -1,5 +1,13 @@
 package com.nabha.telemedicine.feature.settings
 
+import android.app.LocaleManager
+import android.content.Context
+import android.net.Uri
+import android.os.Build
+import android.os.LocaleList
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -22,6 +30,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -29,77 +39,168 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.core.os.LocaleListCompat
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.*
+import androidx.datastore.preferences.preferencesDataStore
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.nabha.telemedicine.core.design.components.NabhaTextField
 import com.nabha.telemedicine.core.design.theme.*
 import com.nabha.telemedicine.core.navigation.Screen
+import kotlinx.coroutines.launch
 
-// ── User profile state (in real app, from ViewModel/Firebase) ─────────────────
+// ── DataStore setup ──────────────────────────────────────────────────────────
+private val Context.profileDataStore: DataStore<Preferences> by preferencesDataStore(name = "user_profile")
+
+private object ProfileKeys {
+    val NAME         = stringPreferencesKey("name")
+    val VILLAGE      = stringPreferencesKey("village")
+    val PHONE        = stringPreferencesKey("phone")
+    val BLOOD_GROUP  = stringPreferencesKey("blood_group")
+    val PROFILE_PIC  = stringPreferencesKey("profile_pic_uri")
+    val AADHAAR_LINKED = booleanPreferencesKey("aadhaar_linked")
+    val LANGUAGE     = stringPreferencesKey("language")
+    val NOTIFICATIONS = booleanPreferencesKey("notifications_enabled")
+    val DARK_MODE    = booleanPreferencesKey("dark_mode")
+    val OFFLINE_SYNC = booleanPreferencesKey("offline_sync")
+}
+
+// ── Local model (UI-only) ────────────────────────────────────────────────────
 data class UserProfile(
-    val name: String = "Sukhvir Singh",
-    val village: String = "Village Bahman, Nabha",
-    val phone: String = "+91-98765-43210",
-    val bloodGroup: String = "A+",
+    val name: String         = "",
+    val village: String      = "",
+    val phone: String        = "",
+    val bloodGroup: String   = "",
+    val profilePicUri: String = "",
     val aadhaarLinked: Boolean = false
 )
 
+// ── Language helper ──────────────────────────────────────────────────────────
+private fun applyLanguage(context: Context, languageKey: String) {
+    val code = when (languageKey) {
+        "Hindi"   -> "hi"
+        "English" -> "en"
+        else      -> "pa" // Punjabi default
+    }
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        context.getSystemService(LocaleManager::class.java)
+            .applicationLocales = LocaleList.forLanguageTags(code)
+    } else {
+        AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(code))
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Settings Screen
+// ══════════════════════════════════════════════════════════════════════════════
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(navController: NavController) {
-    // ── State ──────────────────────────────────────────────────────────────────
-    var profile by remember { mutableStateOf(UserProfile()) }
-    var selectedLanguage by remember { mutableStateOf("Punjabi") }
-    var notificationsEnabled by remember { mutableStateOf(true) }
-    var darkMode by remember { mutableStateOf(true) }
-    var offlineSyncEnabled by remember { mutableStateOf(true) }
+    val context = LocalContext.current
+    val scope   = rememberCoroutineScope()
+    val ds      = context.profileDataStore
 
-    // Dialog visibility
-    var showEditProfile by remember { mutableStateOf(false) }
+    // ── Load persisted state ──────────────────────────────────────────────────
+    val savedPrefs by ds.data.collectAsState(initial = emptyPreferences())
+
+    val profile by remember(savedPrefs) {
+        derivedStateOf {
+            UserProfile(
+                name          = savedPrefs[ProfileKeys.NAME]           ?: "",
+                village       = savedPrefs[ProfileKeys.VILLAGE]        ?: "",
+                phone         = savedPrefs[ProfileKeys.PHONE]          ?: "",
+                bloodGroup    = savedPrefs[ProfileKeys.BLOOD_GROUP]    ?: "A+",
+                profilePicUri = savedPrefs[ProfileKeys.PROFILE_PIC]   ?: "",
+                aadhaarLinked = savedPrefs[ProfileKeys.AADHAAR_LINKED] ?: false
+            )
+        }
+    }
+    val selectedLanguage     by remember(savedPrefs) { derivedStateOf { savedPrefs[ProfileKeys.LANGUAGE]      ?: "Punjabi" } }
+    val notificationsEnabled by remember(savedPrefs) { derivedStateOf { savedPrefs[ProfileKeys.NOTIFICATIONS]  ?: true    } }
+    val darkMode             by remember(savedPrefs) { derivedStateOf { savedPrefs[ProfileKeys.DARK_MODE]      ?: true    } }
+    val offlineSyncEnabled   by remember(savedPrefs) { derivedStateOf { savedPrefs[ProfileKeys.OFFLINE_SYNC]   ?: true    } }
+
+    // ── DataStore helpers ──────────────────────────────────────────────────────
+    fun saveProfile(p: UserProfile) = scope.launch {
+        ds.edit { prefs ->
+            prefs[ProfileKeys.NAME]           = p.name
+            prefs[ProfileKeys.VILLAGE]        = p.village
+            prefs[ProfileKeys.PHONE]          = p.phone
+            prefs[ProfileKeys.BLOOD_GROUP]    = p.bloodGroup
+            prefs[ProfileKeys.PROFILE_PIC]    = p.profilePicUri
+            prefs[ProfileKeys.AADHAAR_LINKED] = p.aadhaarLinked
+        }
+    }
+
+    fun saveLanguage(lang: String) = scope.launch {
+        ds.edit { it[ProfileKeys.LANGUAGE] = lang }
+        applyLanguage(context, lang)
+    }
+
+    fun saveNotifications(v: Boolean) = scope.launch { ds.edit { it[ProfileKeys.NOTIFICATIONS] = v } }
+    fun saveDarkMode(v: Boolean)      = scope.launch { ds.edit { it[ProfileKeys.DARK_MODE]      = v } }
+    fun saveOfflineSync(v: Boolean)   = scope.launch { ds.edit { it[ProfileKeys.OFFLINE_SYNC]   = v } }
+
+    fun linkAadhaar()   = scope.launch { ds.edit { it[ProfileKeys.AADHAAR_LINKED] = true  } }
+    fun unlinkAadhaar() = scope.launch { ds.edit { it[ProfileKeys.AADHAAR_LINKED] = false } }
+
+    // ── Image picker ──────────────────────────────────────────────────────────
+    val imagePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let { picked ->
+            // Persist permission so we can re-load on next launch
+            context.contentResolver.takePersistableUriPermission(
+                picked, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+            scope.launch { ds.edit { it[ProfileKeys.PROFILE_PIC] = picked.toString() } }
+        }
+    }
+
+    // ── Dialog visibility ──────────────────────────────────────────────────────
+    var showEditProfile    by remember { mutableStateOf(false) }
     var showLanguagePicker by remember { mutableStateOf(false) }
-    var showAadhaar by remember { mutableStateOf(false) }
-    var showPrivacy by remember { mutableStateOf(false) }
-    var showHelp by remember { mutableStateOf(false) }
-    var showContact by remember { mutableStateOf(false) }
-    var showAbout by remember { mutableStateOf(false) }
+    var showAadhaar        by remember { mutableStateOf(false) }
+    var showPrivacy        by remember { mutableStateOf(false) }
+    var showHelp           by remember { mutableStateOf(false) }
+    var showContact        by remember { mutableStateOf(false) }
+    var showAbout          by remember { mutableStateOf(false) }
     var showSignOutConfirm by remember { mutableStateOf(false) }
 
     // ── Dialogs ────────────────────────────────────────────────────────────────
     if (showEditProfile) {
         EditProfileDialog(
-            profile  = profile,
-            onSave   = { updated -> profile = updated; showEditProfile = false },
+            profile   = profile,
+            onSave    = { updated -> saveProfile(updated); showEditProfile = false },
             onDismiss = { showEditProfile = false }
         )
     }
     if (showLanguagePicker) {
         LanguagePickerDialog(
             current   = selectedLanguage,
-            onSelect  = { selectedLanguage = it; showLanguagePicker = false },
+            onSelect  = { lang -> saveLanguage(lang); showLanguagePicker = false },
             onDismiss = { showLanguagePicker = false }
         )
     }
     if (showAadhaar) {
         AadhaarDialog(
             isLinked  = profile.aadhaarLinked,
-            onLink    = { profile = profile.copy(aadhaarLinked = true); showAadhaar = false },
+            onLink    = { linkAadhaar(); showAadhaar = false },
+            onUnlink  = { unlinkAadhaar(); showAadhaar = false },
             onDismiss = { showAadhaar = false }
         )
     }
-    if (showPrivacy) {
-        PrivacyDialog(onDismiss = { showPrivacy = false })
-    }
-    if (showHelp) {
-        HelpDialog(onDismiss = { showHelp = false })
-    }
-    if (showContact) {
-        ContactDialog(onDismiss = { showContact = false })
-    }
-    if (showAbout) {
-        AboutDialog(onDismiss = { showAbout = false })
-    }
+    if (showPrivacy)        PrivacyDialog(onDismiss = { showPrivacy = false })
+    if (showHelp)           HelpDialog(onDismiss = { showHelp = false })
+    if (showContact)        ContactDialog(onDismiss = { showContact = false })
+    if (showAbout)          AboutDialog(onDismiss = { showAbout = false })
     if (showSignOutConfirm) {
         SignOutDialog(
             onConfirm = {
+                // Clear profile data on sign-out
+                scope.launch { ds.edit { it.clear() } }
                 showSignOutConfirm = false
                 navController.navigate(Screen.Login.route) {
                     popUpTo(0) { inclusive = true }
@@ -121,17 +222,31 @@ fun SettingsScreen(navController: NavController) {
                     .padding(horizontal = 20.dp, vertical = 20.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    // Avatar — tap to edit profile
+                    // ── Avatar — tappable to pick photo ─────────────────────
                     Box(
                         modifier = Modifier
                             .size(68.dp)
                             .clip(CircleShape)
                             .background(NabhaBlue800)
                             .border(2.dp, NabhaBlue400, CircleShape)
-                            .clickable(MutableInteractionSource(), null) { showEditProfile = true },
+                            .clickable(MutableInteractionSource(), null) {
+                                imagePicker.launch("image/*")
+                            },
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Rounded.Person, null, tint = NabhaBlue200, modifier = Modifier.size(38.dp))
+                        if (profile.profilePicUri.isNotEmpty()) {
+                            AsyncImage(
+                                model = ImageRequest.Builder(context)
+                                    .data(Uri.parse(profile.profilePicUri))
+                                    .crossfade(true)
+                                    .build(),
+                                contentDescription = "Profile picture",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            Icon(Icons.Rounded.Person, null, tint = NabhaBlue200, modifier = Modifier.size(38.dp))
+                        }
                         // Camera overlay badge
                         Box(
                             modifier = Modifier
@@ -149,8 +264,17 @@ fun SettingsScreen(navController: NavController) {
                     Spacer(Modifier.width(16.dp))
 
                     Column {
-                        Text(profile.name, fontWeight = FontWeight.Bold, color = TextPrimary, fontSize = 19.sp)
-                        Text(profile.village, color = TextTertiary, fontSize = 13.sp)
+                        Text(
+                            profile.name.ifEmpty { "Tap Edit to set name" },
+                            fontWeight = FontWeight.Bold,
+                            color      = if (profile.name.isEmpty()) TextTertiary else TextPrimary,
+                            fontSize   = 19.sp
+                        )
+                        Text(
+                            profile.village.ifEmpty { "Village / Address" },
+                            color    = TextTertiary,
+                            fontSize = 13.sp
+                        )
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(NabhaGreen400))
                             Spacer(Modifier.width(4.dp))
@@ -159,8 +283,6 @@ fun SettingsScreen(navController: NavController) {
                     }
 
                     Spacer(Modifier.weight(1f))
-
-                    // Edit button in header
                     NabhaIconButton(Icons.Rounded.Edit, onClick = { showEditProfile = true }, tint = NabhaBlue400)
                 }
             }
@@ -199,7 +321,7 @@ fun SettingsScreen(navController: NavController) {
                         )
                         Divider(modifier = Modifier.height(40.dp).width(1.dp), color = DividerDark)
                         ProfileStat(
-                            value  = profile.bloodGroup,
+                            value  = profile.bloodGroup.ifEmpty { "—" },
                             label  = "Blood Group",
                             color  = NabhaSaffron400,
                             onClick = { showEditProfile = true }
@@ -224,12 +346,12 @@ fun SettingsScreen(navController: NavController) {
             // ── Account ─────────────────────────────────────────────────────────
             item { SettingsSectionTitle("Account") }
             item {
-                SettingsItem(Icons.Rounded.Person,       "Edit Profile",        "Update your personal info",       NabhaGreen400)  { showEditProfile = true }
-                SettingsItem(Icons.Rounded.Security,     "Privacy & Security",  "Manage data and permissions",      NabhaBlue400)   { showPrivacy = true }
+                SettingsItem(Icons.Rounded.Person,    "Edit Profile",       "Update your personal info",        NabhaGreen400)  { showEditProfile = true }
+                SettingsItem(Icons.Rounded.Security,  "Privacy & Security", "Manage data and permissions",      NabhaBlue400)   { showPrivacy = true }
                 SettingsItem(
                     icon     = Icons.Rounded.VerifiedUser,
                     title    = "Aadhaar Verification",
-                    subtitle = if (profile.aadhaarLinked) "✓ Linked" else "Not linked",
+                    subtitle = if (profile.aadhaarLinked) "✓ Linked — tap to manage" else "Not linked · Tap to link",
                     color    = if (profile.aadhaarLinked) NabhaGreen400 else NabhaSaffron400,
                     onClick  = { showAadhaar = true }
                 )
@@ -244,7 +366,7 @@ fun SettingsScreen(navController: NavController) {
                     subtitle = if (notificationsEnabled) "Reminders & updates enabled" else "Notifications disabled",
                     color    = NabhaSaffron400,
                     checked  = notificationsEnabled,
-                    onToggle = { notificationsEnabled = it }
+                    onToggle = { saveNotifications(it) }
                 )
                 SettingsToggleItem(
                     icon     = Icons.Rounded.DarkMode,
@@ -252,7 +374,7 @@ fun SettingsScreen(navController: NavController) {
                     subtitle = if (darkMode) "Currently enabled" else "Currently disabled",
                     color    = Color(0xFF8B5CF6),
                     checked  = darkMode,
-                    onToggle = { darkMode = it }
+                    onToggle = { saveDarkMode(it) }
                 )
                 SettingsToggleItem(
                     icon     = Icons.Rounded.CloudSync,
@@ -260,7 +382,7 @@ fun SettingsScreen(navController: NavController) {
                     subtitle = if (offlineSyncEnabled) "Records synced for offline access" else "Sync disabled",
                     color    = NabhaGreen400,
                     checked  = offlineSyncEnabled,
-                    onToggle = { offlineSyncEnabled = it }
+                    onToggle = { saveOfflineSync(it) }
                 )
             }
 
@@ -269,7 +391,7 @@ fun SettingsScreen(navController: NavController) {
             item {
                 SettingsItem(Icons.Rounded.Help,           "Help & FAQ",      "Frequently asked questions", NabhaBlue400)   { showHelp = true }
                 SettingsItem(Icons.Rounded.ContactSupport, "Contact Support", "Chat or call helpdesk",      NabhaGreen400)  { showContact = true }
-                SettingsItem(Icons.Rounded.Info,           "About App",       "Version 1.0.0 · Punjab Govt",TextTertiary)   { showAbout = true }
+                SettingsItem(Icons.Rounded.Info,           "About App",       "Version 1.0.0 · Punjab Govt", TextTertiary)  { showAbout = true }
             }
 
             // ── Sign Out ────────────────────────────────────────────────────────
@@ -310,10 +432,10 @@ fun SettingsScreen(navController: NavController) {
 // ══════════════════════════════════════════════════════════════════════════════
 @Composable
 private fun EditProfileDialog(profile: UserProfile, onSave: (UserProfile) -> Unit, onDismiss: () -> Unit) {
-    var name       by remember { mutableStateOf(profile.name) }
-    var village    by remember { mutableStateOf(profile.village) }
-    var phone      by remember { mutableStateOf(profile.phone) }
-    var bloodGroup by remember { mutableStateOf(profile.bloodGroup) }
+    var name       by remember(profile) { mutableStateOf(profile.name) }
+    var village    by remember(profile) { mutableStateOf(profile.village) }
+    var phone      by remember(profile) { mutableStateOf(profile.phone) }
+    var bloodGroup by remember(profile) { mutableStateOf(profile.bloodGroup.ifEmpty { "A+" }) }
     val bloodGroups = listOf("A+","A-","B+","B-","AB+","AB-","O+","O-")
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
@@ -330,7 +452,7 @@ private fun EditProfileDialog(profile: UserProfile, onSave: (UserProfile) -> Uni
                 Text("Update your personal information", color = TextTertiary, fontSize = 13.sp)
                 Spacer(Modifier.height(20.dp))
 
-                NabhaTextField(value = name, onValueChange = { name = it }, hint = "Full Name", leadingIcon = Icons.Rounded.Person)
+                NabhaTextField(value = name,    onValueChange = { name = it },    hint = "Full Name",        leadingIcon = Icons.Rounded.Person)
                 Spacer(Modifier.height(12.dp))
                 NabhaTextField(value = village, onValueChange = { village = it }, hint = "Village / Address", leadingIcon = Icons.Rounded.LocationOn)
                 Spacer(Modifier.height(12.dp))
@@ -367,7 +489,16 @@ private fun EditProfileDialog(profile: UserProfile, onSave: (UserProfile) -> Uni
                         border   = androidx.compose.foundation.BorderStroke(1.dp, DividerDark)
                     ) { Text("Cancel") }
                     Button(
-                        onClick  = { onSave(UserProfile(name.trim(), village.trim(), phone.trim(), bloodGroup, profile.aadhaarLinked)) },
+                        onClick = {
+                            onSave(
+                                profile.copy(
+                                    name       = name.trim(),
+                                    village    = village.trim(),
+                                    phone      = phone.trim(),
+                                    bloodGroup = bloodGroup
+                                )
+                            )
+                        },
                         modifier = Modifier.weight(1f),
                         colors   = ButtonDefaults.buttonColors(containerColor = NabhaBlue500)
                     ) { Text("Save Changes", color = Color.White) }
@@ -388,7 +519,12 @@ private fun BloodGroupChip(label: String, selected: Boolean, onClick: () -> Unit
             .padding(horizontal = 12.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center
     ) {
-        Text(label, color = if (selected) NabhaSaffron300 else TextSecondary, fontSize = 13.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+        Text(
+            label,
+            color      = if (selected) NabhaSaffron300 else TextSecondary,
+            fontSize   = 13.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+        )
     }
 }
 
@@ -444,13 +580,19 @@ private fun LanguagePickerDialog(current: String, onSelect: (String) -> Unit, on
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// Aadhaar Verification Dialog
+// Aadhaar Verification Dialog — supports Link + Unlink
 // ══════════════════════════════════════════════════════════════════════════════
 @Composable
-private fun AadhaarDialog(isLinked: Boolean, onLink: () -> Unit, onDismiss: () -> Unit) {
+private fun AadhaarDialog(
+    isLinked : Boolean,
+    onLink   : () -> Unit,
+    onUnlink : () -> Unit,
+    onDismiss: () -> Unit
+) {
     var aadhaarNumber by remember { mutableStateOf("") }
-    var otpSent by remember { mutableStateOf(false) }
-    var otp by remember { mutableStateOf("") }
+    var otpSent       by remember { mutableStateOf(false) }
+    var otp           by remember { mutableStateOf("") }
+    var showUnlinkConfirm by remember { mutableStateOf(false) }
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Box(
@@ -463,6 +605,7 @@ private fun AadhaarDialog(isLinked: Boolean, onLink: () -> Unit, onDismiss: () -
                 .padding(24.dp)
         ) {
             Column {
+                // ── Header ───────────────────────────────────────────────────
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier.size(44.dp).clip(RoundedCornerShape(12.dp))
@@ -479,10 +622,14 @@ private fun AadhaarDialog(isLinked: Boolean, onLink: () -> Unit, onDismiss: () -
                     Spacer(Modifier.width(14.dp))
                     Column {
                         Text("Aadhaar Verification", fontWeight = FontWeight.Bold, color = TextPrimary, fontSize = 16.sp)
-                        Text(if (isLinked) "✓ Successfully linked" else "Link your Aadhaar card", color = TextTertiary, fontSize = 12.sp)
+                        Text(
+                            if (isLinked) "✓ Successfully linked" else "Link your Aadhaar card",
+                            color = TextTertiary, fontSize = 12.sp
+                        )
                     }
                 }
 
+                // ── LINKED state ──────────────────────────────────────────────
                 if (isLinked) {
                     Spacer(Modifier.height(16.dp))
                     Box(
@@ -495,25 +642,76 @@ private fun AadhaarDialog(isLinked: Boolean, onLink: () -> Unit, onDismiss: () -
                             Text("Your Aadhaar is linked and verified", color = NabhaGreen300, fontSize = 13.sp)
                         }
                     }
-                    Spacer(Modifier.height(16.dp))
-                    Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = NabhaBlue500)) {
-                        Text("Close", color = Color.White)
+
+                    if (showUnlinkConfirm) {
+                        Spacer(Modifier.height(12.dp))
+                        Box(
+                            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                                .background(NabhaRed700.copy(0.15f))
+                                .border(1.dp, NabhaRed700.copy(0.4f), RoundedCornerShape(12.dp))
+                                .padding(14.dp)
+                        ) {
+                            Column {
+                                Text(
+                                    "Are you sure you want to unlink your Aadhaar? Your identity verification will be removed.",
+                                    color = TextSecondary, fontSize = 13.sp, lineHeight = 19.sp
+                                )
+                                Spacer(Modifier.height(12.dp))
+                                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    OutlinedButton(
+                                        onClick  = { showUnlinkConfirm = false },
+                                        modifier = Modifier.weight(1f),
+                                        border   = androidx.compose.foundation.BorderStroke(1.dp, DividerDark)
+                                    ) { Text("Cancel", color = TextSecondary, fontSize = 13.sp) }
+                                    Button(
+                                        onClick  = onUnlink,
+                                        modifier = Modifier.weight(1f),
+                                        colors   = ButtonDefaults.buttonColors(containerColor = NabhaRed600)
+                                    ) { Text("Unlink", color = Color.White, fontSize = 13.sp) }
+                                }
+                            }
+                        }
                     }
+
+                    Spacer(Modifier.height(16.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        if (!showUnlinkConfirm) {
+                            OutlinedButton(
+                                onClick  = { showUnlinkConfirm = true },
+                                modifier = Modifier.weight(1f),
+                                border   = androidx.compose.foundation.BorderStroke(1.dp, NabhaRed700.copy(0.5f)),
+                                colors   = ButtonDefaults.outlinedButtonColors(contentColor = NabhaRed400)
+                            ) {
+                                Icon(Icons.Rounded.LinkOff, null, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text("Unlink")
+                            }
+                        }
+                        Button(
+                            onClick  = onDismiss,
+                            modifier = Modifier.weight(1f),
+                            colors   = ButtonDefaults.buttonColors(containerColor = NabhaBlue500)
+                        ) { Text("Close", color = Color.White) }
+                    }
+
+                // ── NOT LINKED state ───────────────────────────────────────────
                 } else {
                     Spacer(Modifier.height(20.dp))
                     if (!otpSent) {
                         NabhaTextField(
-                            value = aadhaarNumber,
-                            onValueChange = { if (it.length <= 12) aadhaarNumber = it },
-                            hint = "12-digit Aadhaar Number",
-                            leadingIcon = Icons.Rounded.Badge,
+                            value           = aadhaarNumber,
+                            onValueChange   = { if (it.length <= 12) aadhaarNumber = it },
+                            hint            = "12-digit Aadhaar Number",
+                            leadingIcon     = Icons.Rounded.Badge,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                         )
                         Spacer(Modifier.height(16.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            OutlinedButton(onClick = onDismiss, modifier = Modifier.weight(1f), border = androidx.compose.foundation.BorderStroke(1.dp, DividerDark)) {
-                                Text("Cancel", color = TextSecondary)
-                            }
+                            OutlinedButton(
+                                onClick  = onDismiss,
+                                modifier = Modifier.weight(1f),
+                                border   = androidx.compose.foundation.BorderStroke(1.dp, DividerDark)
+                            ) { Text("Cancel", color = TextSecondary) }
                             Button(
                                 onClick  = { if (aadhaarNumber.length == 12) otpSent = true },
                                 enabled  = aadhaarNumber.length == 12,
@@ -525,23 +723,25 @@ private fun AadhaarDialog(isLinked: Boolean, onLink: () -> Unit, onDismiss: () -
                         Text("OTP sent to registered mobile", color = NabhaGreen400, fontSize = 13.sp)
                         Spacer(Modifier.height(12.dp))
                         NabhaTextField(
-                            value = otp,
-                            onValueChange = { if (it.length <= 6) otp = it },
-                            hint = "Enter 6-digit OTP",
-                            leadingIcon = Icons.Rounded.Lock,
+                            value           = otp,
+                            onValueChange   = { if (it.length <= 6) otp = it },
+                            hint            = "Enter 6-digit OTP",
+                            leadingIcon     = Icons.Rounded.Lock,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                         )
                         Spacer(Modifier.height(16.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            OutlinedButton(onClick = { otpSent = false }, modifier = Modifier.weight(1f), border = androidx.compose.foundation.BorderStroke(1.dp, DividerDark)) {
-                                Text("Back", color = TextSecondary)
-                            }
+                            OutlinedButton(
+                                onClick  = { otpSent = false },
+                                modifier = Modifier.weight(1f),
+                                border   = androidx.compose.foundation.BorderStroke(1.dp, DividerDark)
+                            ) { Text("Back", color = TextSecondary) }
                             Button(
                                 onClick  = { if (otp.length == 6) onLink() },
                                 enabled  = otp.length == 6,
                                 modifier = Modifier.weight(1f),
                                 colors   = ButtonDefaults.buttonColors(containerColor = NabhaSaffron500)
-                            ) { Text("Verify", color = Color.White) }
+                            ) { Text("Verify & Link", color = Color.White) }
                         }
                     }
                 }
@@ -571,10 +771,10 @@ private fun PrivacyDialog(onDismiss: () -> Unit) {
                 Spacer(Modifier.height(16.dp))
 
                 Column(modifier = Modifier.verticalScroll(rememberScrollState()).heightIn(max = 320.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    PrivacyItem(Icons.Rounded.Lock,        "End-to-End Encryption", "All consultations and health data are fully encrypted", NabhaBlue400)
-                    PrivacyItem(Icons.Rounded.Storage,     "Local Data Storage",    "Records are stored securely on your device and cloud", NabhaGreen400)
-                    PrivacyItem(Icons.Rounded.VisibilityOff,"No Third-Party Sharing","Your health data is never shared with advertisers",   Color(0xFF8B5CF6))
-                    PrivacyItem(Icons.Rounded.DeleteForever,"Delete My Data",        "Request full deletion of your account and data",      NabhaRed400)
+                    PrivacyItem(Icons.Rounded.Lock,          "End-to-End Encryption",  "All consultations and health data are fully encrypted",   NabhaBlue400)
+                    PrivacyItem(Icons.Rounded.Storage,       "Local Data Storage",     "Records are stored securely on your device and cloud",    NabhaGreen400)
+                    PrivacyItem(Icons.Rounded.VisibilityOff, "No Third-Party Sharing", "Your health data is never shared with advertisers",       Color(0xFF8B5CF6))
+                    PrivacyItem(Icons.Rounded.DeleteForever, "Delete My Data",         "Request full deletion of your account and data",          NabhaRed400)
                 }
 
                 Spacer(Modifier.height(20.dp))
@@ -687,13 +887,13 @@ private fun ContactDialog(onDismiss: () -> Unit) {
                 Text("We're here to help · ਅਸੀਂ ਮਦਦ ਕਰਨ ਲਈ ਤਿਆਰ ਹਾਂ", color = TextTertiary, fontSize = 13.sp)
                 Spacer(Modifier.height(20.dp))
 
-                ContactOption(Icons.Rounded.Phone,    "Call Helpdesk",   "+91-1800-XXX-XXXX",      "Mon–Sat, 9AM–6PM",  NabhaBlue400)
+                ContactOption(Icons.Rounded.Phone,     "Call Helpdesk",    "1800-XXX-XXXX",                "Mon–Sat, 9AM–6PM",        NabhaBlue400)
                 Spacer(Modifier.height(12.dp))
-                ContactOption(Icons.Rounded.Chat,     "WhatsApp Support", "+91-98765-43210",         "Available 24/7",    NabhaGreen400)
+                ContactOption(Icons.Rounded.Chat,      "WhatsApp Support", "WhatsApp Chat",                "Available 24/7",          NabhaGreen400)
                 Spacer(Modifier.height(12.dp))
-                ContactOption(Icons.Rounded.Email,    "Email Us",         "help@nabhasehat.punjab.gov.in", "Response in 24hrs", NabhaSaffron400)
+                ContactOption(Icons.Rounded.Email,     "Email Us",         "help@nabhasehat.punjab.gov.in","Response in 24hrs",        NabhaSaffron400)
                 Spacer(Modifier.height(12.dp))
-                ContactOption(Icons.Rounded.LocationOn,"Visit Office",    "Civil Hospital, Nabha",   "Patiala District, Punjab", Color(0xFF8B5CF6))
+                ContactOption(Icons.Rounded.LocationOn,"Visit Office",     "Civil Hospital, Nabha",        "Patiala District, Punjab", Color(0xFF8B5CF6))
 
                 Spacer(Modifier.height(20.dp))
                 Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = NabhaBlue500)) {
